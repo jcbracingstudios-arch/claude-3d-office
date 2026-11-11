@@ -1,0 +1,46 @@
+:root { --ink: #2b2a27; --muted: #77746c; --paper: #fbf9f4; --accent: #d97757; font-family: system-ui, 'Segoe UI', sans-serif; color: var(--ink); }
+* { box-sizing: border-box; }
+html, body, #root, .app { margin: 0; height: 100%; overflow: hidden; background: #f4f1ea; }
+.mono { font-family: ui-monospace, Consolas, monospace; }
+.muted { color: var(--muted); }
+
+.bar { position: fixed; top: 12px; left: 12px; display: flex; gap: 10px; align-items: center; padding: 8px 14px; background: var(--paper); border-radius: 10px; box-shadow: 0 2px 10px #0001; font-size: 14px; }
+.bar button { border: 1px solid var(--accent); background: none; color: var(--accent); border-radius: 6px; padding: 3px 8px; cursor: pointer; font: inherit; }
+.bar button.link { border: 0; color: var(--muted); text-decoration: underline; }
+.connect { position: fixed; top: 64px; left: 12px; width: min(380px, calc(100vw - 24px)); background: var(--paper); border-radius: 12px; box-shadow: 0 4px 24px #0002; padding: 16px; font-size: 13px; z-index: 30; }
+.connect h2 { margin: 0 0 8px; font-size: 16px; }
+.connect code { font-size: 11px; word-break: break-all; }
+.connect button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.dot.on { background: #5b8c5a; } .dot.off { background: #c94a3f; }
+.empty { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--paper); padding: 10px 16px; border-radius: 10px; box-shadow: 0 2px 10px #0001; font-size: 14px; }
+
+.tag { display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; user-select: none; }
+.bubble { font-size: 15px; line-height: 1; padding: 4px 6px; background: #fff; border-radius: 10px; box-shadow: 0 2px 6px #0002; position: relative; animation: pop .25s ease-out; }
+.bubble::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #fff; }
+.bubble:empty { display: none; }
+.timer { font: 600 13px ui-monospace, Consolas, monospace; color: #fff; background: #7a5cc4; padding: 3px 8px; border-radius: 8px; box-shadow: 0 2px 6px #0003; }
+.timer:empty { display: none; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } }
+.name {font-size: 11px; padding: 1px 6px; border-radius: 5px; background: #fffc; color: var(--muted); }
+.name.boss { font-weight: 600; color: var(--ink); }
+.badge { font-weight: 800; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; box-shadow: 0 2px 6px #0003; }
+.badge.warn { background: #e0902f; animation: pulse 1s infinite; }
+.badge.err { background: #c94a3f; animation: pulse .6s infinite; }
+.badge.ok { background: #5b8c5a; }
+@keyframes pulse { 50% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .badge { animation: none !important; } }
+.plate { font-size: 10px; padding: 1px 6px; background: #c9a27ecc; color: #fff; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+
+.hud { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); background: var(--paper); border-radius: 12px; box-shadow: 0 4px 24px #0002; padding: 16px; overflow-y: auto; font-size: 13px; }
+.hud-head { display: flex; justify-content: space-between; gap: 8px; }
+.hud h2 { margin: 0; font-size: 18px; }
+.hud h3 { font-size: 13px; margin: 16px 0 6px; }
+.hud .close { border: 0; background: none; font-size: 22px; cursor: pointer; color: var(--muted); }
+.status { display: inline-block; margin: 10px 0; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 600; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+dt { color: var(--muted); } dd { margin: 0; word-break: break-word; }
+.agents { margin: 0; padding-left: 16px; }
+.logs { list-style: none; margin: 0; padding: 0; font-size: 11.5px; }
+.logs li { padding: 4px 0; border-bottom: 1px solid #0000000d; }
+.detail { color: var(--muted); word-break: break-all; }

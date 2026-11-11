@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Claude 3D Office: the mascot at its desk, in front of a glowing screen. Bold shapes so it reads at 16px. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF7EE"/>
+      <stop offset="1" stop-color="#EFE7D6"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2F6B4A"/>
+      <stop offset="1" stop-color="#1E3F2E"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)"/>
+  <!-- monitor -->
+  <rect x="212" y="150" width="600" height="400" rx="56" fill="#2B2A27"/>
+  <rect x="250" y="188" width="524" height="324" rx="30" fill="url(#screen)"/>
+  <rect x="300" y="240" width="220" height="34" rx="17" fill="#5BE39A"/>
+  <rect x="300" y="300" width="320" height="34" rx="17" fill="#5BE39A" opacity=".75"/>
+  <rect x="340" y="360" width="180" height="34" rx="17" fill="#D97757"/>
+  <!-- desk -->
+  <rect x="96" y="760" width="832" height="70" rx="35" fill="#8A6A4F"/>
+  <!-- mascot body -->
+  <rect x="282" y="430" width="460" height="360" rx="80" fill="#D97757"/>
+  <!-- arms on the desk -->
+  <rect x="210" y="640" width="120" height="130" rx="44" fill="#C4623F"/>
+  <rect x="694" y="640" width="120" height="130" rx="44" fill="#C4623F"/>
+  <!-- eyes -->
+  <rect x="400" y="530" width="62" height="110" rx="26" fill="#2B2A27"/>
+  <rect x="562" y="530" width="62" height="110" rx="26" fill="#2B2A27"/>
+</svg>

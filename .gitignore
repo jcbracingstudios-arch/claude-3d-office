@@ -1,0 +1,9 @@
+node_modules/
+ui/dist/
+src-tauri/target/
+src-tauri/gen/
+*.exe
+.env
+video/.env
+video/out/
+video/frames/
