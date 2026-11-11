@@ -1,6 +1,6 @@
 {
   "name": "claude-3d-office",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bureau virtuel 3D qui montre en direct l'activité de tes sessions Claude Code. 100 % local, zéro token.",
   "license": "MIT",
   "bin": {

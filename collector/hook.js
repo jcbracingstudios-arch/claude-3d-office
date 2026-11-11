@@ -32,7 +32,7 @@ function redact(text) {
 function detail(e) {
   const i = e.tool_input || {};
   const raw = i.command || i.file_path || i.notebook_path || i.pattern || i.url || i.query || i.description ||
-    e.message || e.error || e.reason || e.source || '';
+    e.task_subject || e.message || e.error || e.reason || e.source || '';
   const oneLine = String(raw).replace(/\s+/g, ' ').trim();
   return redact(oneLine).slice(0, 160);
 }
@@ -47,6 +47,8 @@ function toLine(e, now = new Date()) {
   if (e.tool_name) line.tool = e.tool_name;
   if (e.agent_id) line.agent_id = e.agent_id;
   if (e.agent_type) line.agent_type = e.agent_type;
+  if (e.teammate_name) line.teammate = e.teammate_name; // agent teams
+  if (e.task_id) line.task_id = e.task_id;
   if (e.notification_type) line.kind = e.notification_type;
   else if (typeof e.error === 'string') line.kind = e.error; // StopFailure error type, e.g. rate_limit
   const d = detail(e);

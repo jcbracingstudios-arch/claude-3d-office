@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Office from './Office.jsx';
 import Hud from './Hud.jsx';
+import Dashboard from './Dashboard.jsx';
 
 export const STATUS = {
   idle: { label: 'En pause', color: '#8a8780' },
@@ -56,6 +57,7 @@ export default function App() {
   const [data, setData] = useState({ sessions: [], now: null });
   const [online, setOnline] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [dash, setDash] = useState(false);
   const [notifPerm, setNotifPerm] = useState(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
   const prev = useRef({});
   const [, setTick] = useState(0);
@@ -108,10 +110,12 @@ export default function App() {
   return (
     <div className="app">
       <Office sessions={data.sessions} selected={selected} onSelect={setSelected} />
+      <div id="labels" />
       {!FILM && <header className="bar">
         <strong>Claude 3D Office</strong>
         <span className={'dot ' + (online ? 'on' : 'off')} title={online ? 'Connecté au daemon local' : 'Daemon injoignable'} />
         <span>{data.sessions.length} session{data.sessions.length > 1 ? 's' : ''} · {working} au travail{alerts ? ` · ${alerts} alerte${alerts > 1 ? 's' : ''}` : ''}</span>
+        <button onClick={() => setDash((d) => !d)}>📊 Aujourd'hui</button>
         {TAURI && <Connection />}
         {!TAURI && notifPerm === 'default' && (
           <button onClick={() => Notification.requestPermission().then(setNotifPerm)}>Activer les notifications</button>
@@ -123,6 +127,7 @@ export default function App() {
         </div>
       )}
       {sel && <Hud session={sel} onClose={() => setSelected(null)} />}
+      {dash && !FILM && <Dashboard stats={data.stats} sessions={data.sessions} onClose={() => setDash(false)} />}
     </div>
   );
 }

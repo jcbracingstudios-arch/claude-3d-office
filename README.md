@@ -46,6 +46,13 @@ Un open space aux baies vitrées, posé comme une maquette sur un îlot de pelou
 - **Salle serveurs** : baies aux LED clignotantes (décor).
 - **Jour et nuit** : le ciel, le soleil et les lumières suivent l'heure de ton PC ; la nuit, les lampes du bureau et de l'allée s'allument. Pour prévisualiser une heure : ajoute `?hour=21` à l'adresse.
 
+## Nouveautés 0.1.1
+
+- **Équipes d'agents** (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) : chaque coéquipier s'assoit à un bureau de l'îlot avec son nom, une enveloppe ✉️ apparaît quand il envoie un message, et l'avancement de la liste de tâches partagée s'affiche à côté du chef (« 📋 2/5 », détail dans le HUD).
+- **Tableau de bord « Aujourd'hui »** : temps de travail, d'attente de ta validation et de blocage par la limite, par projet, avec les tâches terminées et les erreurs.
+- **Limite Claude atteinte** : la mascotte attend dans la salle serveurs avec un chrono.
+- **Mises à jour automatiques** depuis GitHub Releases (paquets signés).
+
 ## Ce que montre le bureau
 
 | État | Mascotte |

@@ -1,10 +1,10 @@
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useModel } from './models.jsx';
 import { findPath } from './nav.js';
 import { filmTime, talkAt } from './film.js';
+import { useLabel, updateLabel } from './label.js';
 
 const SPEED = 2.6; // m/s
 const tmp = new THREE.Vector3();
@@ -30,9 +30,8 @@ function chatter(social, idNum, nowMs) {
 
 const fmtClock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600); const mm = String(Math.floor(s / 60) % 60).padStart(2, '0'); const ss = String(s % 60).padStart(2, '0'); return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`; };
 
-export default function Mascot({ id, target, mood, social, label, boss, selected, spawn, since, scale = 1, onClick }) {
-  const bubble = useRef();
-  const timer = useRef();
+export default function Mascot({ id, target, mood, social, label, boss, selected, spawn, since, say, scale = 1, onClick }) {
+  const tag = useLabel();
   const mouth = useRef();
   const { obj, parts } = useModel('mascot');
   const legs = useMemo(() => Object.entries(parts).filter(([n]) => /^Leg\d/.test(n)).flatMap(([, m]) => m), [parts]);
@@ -50,7 +49,7 @@ export default function Mascot({ id, target, mood, social, label, boss, selected
     path.current = g ? findPath([g.position.x, g.position.z], [tx, tz]) : [[tx, tz]];
   }, [tx, tz]);
 
-  useFrame(({ clock }, dt) => {
+  useFrame(({ clock, camera, size }, dt) => {
     const g = root.current;
     if (!g) return;
     const t = clock.elapsedTime + phase;
@@ -78,11 +77,12 @@ export default function Mascot({ id, target, mood, social, label, boss, selected
       }
     }
     if (!walking) turnTo(g, face, dt * 6);
-    const chat = walking || mood !== 'idle' ? { text: '', gesture: null } : chatter(social, phase, Date.now());
-    if (bubble.current && bubble.current.textContent !== chat.text) bubble.current.textContent = chat.text;
+    const chat = walking ? { text: '', gesture: null } : say ? { text: say, gesture: null }
+      : mood !== 'idle' ? { text: '', gesture: null } : chatter(social, phase, Date.now());
     // Usage limit: stopwatch since the limit was hit (Claude Code does not tell hooks when it resets).
     const tt = mood === 'limited' && since ? `⏳ ${fmtClock(Date.now() - Date.parse(since))}` : '';
-    if (timer.current && timer.current.textContent !== tt) timer.current.textContent = tt;
+    const badge = mood === 'waiting' ? ['!', 'warn'] : mood === 'error' ? ['!', 'err'] : mood === 'celebrate' ? ['✓', 'ok'] : null;
+    updateLabel(tag, g, (target.pose === 'sit' && !walking ? sitY / scale : 0) + 1.2, camera, size, { bubble: chat.text, timer: tt, badge, name: label, boss });
 
     const sit = !walking && target.pose === 'sit';
     let y = sit ? sitY / scale : 0;
@@ -147,8 +147,6 @@ export default function Mascot({ id, target, mood, social, label, boss, selected
     legs.forEach((leg, i) => (leg.rotation.x = sit ? -1.4 : legSwing * (i % 2 ? 1 : -1)));
   });
 
-  const badge = mood === 'waiting' ? ['!', 'warn'] : mood === 'error' ? ['!', 'err'] : mood === 'celebrate' ? ['✓', 'ok'] : null;
-
   return (
     <group ref={root} position={start} scale={scale}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
@@ -175,14 +173,6 @@ export default function Mascot({ id, target, mood, social, label, boss, selected
           <meshBasicMaterial color="#d97757" />
         </mesh>
       )}
-      <Html position={[0, (target.pose === 'sit' ? sitY / scale : 0) + 1.2, 0]} center zIndexRange={[20, 10]} style={{ pointerEvents: 'none' }}>
-        <div className="tag">
-          <span ref={bubble} className="bubble" />
-          <span ref={timer} className="timer" />
-          {badge &&<span className={'badge ' + badge[1]}>{badge[0]}</span>}
-          {label && <span className={boss ? 'name boss' : 'name'}>{label}</span>}
-        </div>
-      </Html>
     </group>
   );
 }

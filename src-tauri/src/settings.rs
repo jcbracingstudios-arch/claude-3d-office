@@ -3,9 +3,10 @@
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 
-pub const EVENTS: [&str; 12] = [
+pub const EVENTS: [&str; 15] = [
     "SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest",
     "Notification", "Stop", "StopFailure", "SubagentStart", "SubagentStop", "SessionEnd",
+    "TaskCreated", "TaskCompleted", "TeammateIdle", // agent teams
 ];
 
 fn home() -> PathBuf {

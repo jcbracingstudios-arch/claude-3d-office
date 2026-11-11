@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Html, OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei';
 import { Suspense, useRef } from 'react';
 import * as THREE from 'three';
 import { FILM, filmTime, keyAt } from './film.js';
@@ -32,14 +32,15 @@ function Pod({ index, session, light }) {
         const a = agents[j];
         return <Workstation key={j} model="desk_small" position={d.pos} rotation={d.rot} active={a?.status === 'working'} night={light.night} />;
       })}
-      {session && (
-        <Html position={[px, 0.02, pz + 1.85]} center zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="plate">{session.project}</div>
-        </Html>
-      )}
     </group>
   );
 }
+
+// Agent teams: shared task list progress, shown next to the lead's name.
+const teamProgress = (s) => {
+  const tasks = Object.values(s.tasks || {});
+  return tasks.length ? ` · 📋 ${tasks.filter((t) => t.done).length}/${tasks.length}` : '';
+};
 
 // Film mode: cinematic perspective camera following FILM.camera keyframes [{ t, pos, look, fov }].
 function FilmCamera() {
@@ -119,11 +120,13 @@ export default function Office({ sessions, selected, onSelect }) {
           return (
             <group key={s.id}>
               {presenting && <Mic position={[seat.pos[0] + 0.32, 0.77, seat.pos[2] + 0.34]} />}
-              <Mascot id={s.id} target={target} mood={presenting ? 'present' : mood} social={social} label={presenting ? null : s.project} boss
-                since={s.since}
+              <Mascot id={s.id} target={target} mood={presenting ? 'present' : mood} social={social} boss
+                label={presenting ? null : s.project + teamProgress(s)}
+                since={s.since} say={/^SendMessage/.test(s.lastAction || '') && s.status === 'working' ? '✉️' : null}
                 selected={selected === s.id} onClick={() => onSelect(s.id)} />
               {agents.map((a, j) => (
-                <Mascot key={a.id} id={a.id} spawn={spawn} scale={0.62} label={a.type} target={employeeDesk(origin, j).seat}
+                <Mascot key={a.id} id={a.id} spawn={spawn} scale={0.62} label={a.name || a.type} target={employeeDesk(origin, j).seat}
+                  say={/^SendMessage/.test(a.lastAction || '') ? '✉️' : null}
                   mood={a.status === 'working' ? 'working' : 'idle'} onClick={() => onSelect(s.id)} />
               ))}
             </group>

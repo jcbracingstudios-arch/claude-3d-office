@@ -29,9 +29,19 @@ export default function Hud({ session: s, onClose }) {
       <h3>Employés ({agents.length})</h3>
       {agents.length ? (
         <ul className="agents">
-          {agents.map((a) => <li key={a.id}><b>{a.type}</b> <span className="muted">{a.lastAction}</span></li>)}
+          {agents.map((a) => <li key={a.id}><b>{a.name || a.type}</b>{a.name && a.name !== a.type ? <span className="muted"> ({a.type})</span> : null} <span className="muted">{a.lastAction}</span></li>)}
         </ul>
       ) : <p className="muted">Aucun sous-agent actif.</p>}
+      {Object.keys(s.tasks || {}).length > 0 && (
+        <>
+          <h3>Tâches de l'équipe ({Object.values(s.tasks).filter((t) => t.done).length}/{Object.keys(s.tasks).length})</h3>
+          <ul className="tasks">
+            {Object.values(s.tasks).map((t) => (
+              <li key={t.id} className={t.done ? 'done' : ''}>{t.done ? '✅' : '⬜'} {t.subject || t.id}{t.owner ? <span className="muted"> · {t.owner}</span> : null}</li>
+            ))}
+          </ul>
+        </>
+      )}
       <h3>Logs en direct</h3>
       <ol className="logs mono">
         {[...s.logs].reverse().map((l, i) => (

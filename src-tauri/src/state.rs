@@ -18,11 +18,23 @@ pub struct Event {
     pub agent_type: Option<String>,
     pub kind: Option<String>,
     pub detail: Option<String>,
+    pub teammate: Option<String>,
+    pub task_id: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Agent { pub id: String, #[serde(rename = "type")] pub kind: String, pub status: String, pub last_action: String }
+pub struct Agent { pub id: String, #[serde(rename = "type")] pub kind: String, pub status: String, pub last_action: String, pub name: Option<String> }
+
+#[derive(Serialize, Clone)]
+pub struct Task { pub id: String, pub subject: String, pub owner: Option<String>, pub done: bool }
+
+/// Today's stats per project (milliseconds per status, tasks done, errors).
+#[derive(Serialize, Clone, Default)]
+pub struct ProjectStats { pub working: i64, pub waiting: i64, pub limited: i64, pub tasks: u32, pub errors: u32 }
+
+#[derive(Serialize, Clone, Default)]
+pub struct Stats { pub day: Option<String>, pub projects: BTreeMap<String, ProjectStats> }
 
 #[derive(Serialize, Clone)]
 pub struct Log { pub ts: String, pub event: String, pub tool: Option<String>, pub agent: Option<String>, pub detail: String }
@@ -33,11 +45,34 @@ pub struct Session {
     pub id: String, pub cwd: String, pub project: String, pub branch: Option<String>,
     pub status: String, pub since: String, pub last_ts: String, pub last_action: String,
     pub task_start: Option<String>, pub tool_count: u32, pub errors: u32,
-    pub agents: BTreeMap<String, Agent>, pub logs: Vec<Log>,
+    pub agents: BTreeMap<String, Agent>, pub logs: Vec<Log>, pub tasks: BTreeMap<String, Task>,
 }
 
 #[derive(Default)]
-pub struct Office { pub sessions: BTreeMap<String, Session> }
+pub struct Office { pub sessions: BTreeMap<String, Session>, pub stats: Stats }
+
+fn parse_ts(ts: &str) -> Option<chrono::DateTime<chrono::Local>> {
+    chrono::DateTime::parse_from_rfc3339(ts).ok().map(|t| t.with_timezone(&chrono::Local))
+}
+
+impl Stats {
+    fn project(&mut self, project: &str, ts: &str) -> &mut ProjectStats {
+        let day = parse_ts(ts).map(|t| t.format("%Y-%m-%d").to_string());
+        if self.day != day { *self = Stats { day, projects: BTreeMap::new() }; }
+        self.projects.entry(project.to_string()).or_default()
+    }
+    /// Adds today's part of the time spent in `status` since `since`.
+    fn accrue(&mut self, project: &str, status: &str, since: &str, until: &str) {
+        if !matches!(status, "working" | "waiting" | "limited") { return }
+        let (Some(a), Some(b)) = (parse_ts(since), parse_ts(until)) else { return };
+        let midnight = b.date_naive().and_hms_opt(0, 0, 0).and_then(|m| m.and_local_timezone(chrono::Local).single());
+        let from = midnight.map(|m| a.max(m)).unwrap_or(a);
+        let ms = (b - from).num_milliseconds();
+        if ms <= 0 { return }
+        let p = self.project(project, until);
+        match status { "working" => p.working += ms, "waiting" => p.waiting += ms, _ => p.limited += ms }
+    }
+}
 
 fn basename(p: &str) -> String {
     p.trim_end_matches(['\\', '/']).rsplit(['\\', '/']).next().unwrap_or("?").to_string()
@@ -65,13 +100,13 @@ impl Office {
     pub fn apply(&mut self, e: Event) {
         let (Some(id), Some(ev)) = (e.session_id.clone(), e.event.clone()) else { return };
         if ev == "SessionEnd" {
-            self.sessions.remove(&id);
+            if let Some(s) = self.sessions.remove(&id) { self.stats.accrue(&s.project, &s.status, &s.since, &e.ts); }
             return;
         }
         let s = self.sessions.entry(id.clone()).or_insert_with(|| Session {
             id: id.clone(), cwd: e.cwd.clone().unwrap_or_default(), project: e.cwd.as_deref().map(basename).unwrap_or("?".into()),
             branch: None, status: "idle".into(), since: e.ts.clone(), last_ts: e.ts.clone(), last_action: String::new(),
-            task_start: None, tool_count: 0, errors: 0, agents: BTreeMap::new(), logs: vec![],
+            task_start: None, tool_count: 0, errors: 0, agents: BTreeMap::new(), logs: vec![], tasks: BTreeMap::new(),
         });
         if let Some(cwd) = e.cwd.as_deref().filter(|c| !c.is_empty()) {
             if cwd != s.cwd { s.cwd = cwd.into(); s.project = basename(cwd); }
@@ -84,17 +119,22 @@ impl Office {
 
         let action = [e.tool.clone().unwrap_or_default(), detail.clone()].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>().join(" · ");
         let ts = e.ts.clone();
-        let set = |s: &mut Session, st: &str| if s.status != st { s.status = st.into(); s.since = ts.clone(); };
+        let stats = &mut self.stats;
+        let mut set = |s: &mut Session, st: &str| if s.status != st {
+            stats.accrue(&s.project, &s.status, &s.since, &ts);
+            s.status = st.into(); s.since = ts.clone();
+        };
         let start_task = |s: &mut Session| if s.task_start.is_none() || s.status == "idle" || s.status == "done" {
             s.task_start = Some(ts.clone()); s.tool_count = 0; s.errors = 0;
         };
         if let Some(aid) = &e.agent_id {
             s.agents.entry(aid.clone()).or_insert_with(|| Agent {
-                id: aid.clone(), kind: e.agent_type.clone().unwrap_or("agent".into()), status: "working".into(), last_action: String::new(),
+                id: aid.clone(), kind: e.agent_type.clone().unwrap_or("agent".into()), status: "working".into(), last_action: String::new(), name: None,
             });
+            if let (Some(n), Some(a)) = (&e.teammate, s.agents.get_mut(aid)) { a.name = Some(n.clone()); }
         }
         match ev.as_str() {
-            "SessionStart" => { set(s, "idle"); s.agents.clear(); }
+            "SessionStart" => { set(s, "idle"); s.agents.clear(); s.tasks.clear(); }
             "UserPromptSubmit" => { start_task(s); set(s, "working"); s.last_action = "Nouvelle tâche".into(); }
             "PreToolUse" => {
                 if s.status != "working" { start_task(s); set(s, "working"); }
@@ -115,12 +155,21 @@ impl Office {
             },
             "SubagentStart" => {}
             "SubagentStop" => { if let Some(a) = &e.agent_id { s.agents.remove(a); } }
-            "Stop" => { set(s, "done"); s.agents.clear(); s.last_action = "Tâche terminée".into(); }
+            "Stop" => { set(s, "done"); s.agents.clear(); s.last_action = "Tâche terminée".into(); self.stats.project(&s.project, &ts).tasks += 1; }
+            "TaskCreated" => if let Some(tid) = &e.task_id {
+                s.tasks.insert(tid.clone(), Task { id: tid.clone(), subject: detail.clone(), owner: e.teammate.clone(), done: false });
+            },
+            "TaskCompleted" => if let Some(tid) = &e.task_id {
+                let t = s.tasks.entry(tid.clone()).or_insert_with(|| Task { id: tid.clone(), subject: detail.clone(), owner: None, done: false });
+                t.done = true;
+                if e.teammate.is_some() { t.owner = e.teammate.clone(); }
+            },
+            "TeammateIdle" => if let Some(a) = e.agent_id.as_ref().and_then(|a| s.agents.get_mut(a)) { a.status = "idle".into(); },
             "StopFailure" => {
                 s.agents.clear();
                 // Usage limit reached: the mascot waits in the server room with a stopwatch.
                 if e.kind.as_deref() == Some("rate_limit") { set(s, "limited"); s.last_action = "Limite Claude atteinte".into(); }
-                else { set(s, "error"); s.last_action = format!("Erreur : {}", if detail.is_empty() { "API" } else { &detail }); }
+                else { set(s, "error"); s.last_action = format!("Erreur : {}", if detail.is_empty() { "API" } else { &detail }); self.stats.project(&s.project, &ts).errors += 1; }
             }
             _ => {}
         }
@@ -133,7 +182,7 @@ impl Office {
 
     pub fn snapshot(&mut self) -> serde_json::Value {
         self.prune();
-        serde_json::json!({ "now": chrono::Utc::now().to_rfc3339(), "sessions": self.sessions.values().collect::<Vec<_>>() })
+        serde_json::json!({ "now": chrono::Utc::now().to_rfc3339(), "sessions": self.sessions.values().collect::<Vec<_>>(), "stats": self.stats })
     }
 }
 
@@ -175,5 +224,25 @@ mod tests {
         assert!(o.sessions.is_empty());
         let snap = o.snapshot();
         assert!(snap["sessions"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn stats_and_team_tasks_match_the_js_daemon() {
+        let mut o = Office::default();
+        let at = |sec: u32, event: &str, f: &dyn Fn(&mut Event)| {
+            let mut e = Event { ts: format!("2026-11-11T12:00:{sec:02}.000Z"), session_id: Some("s1".into()), cwd: Some(r"C:\code\Synapse".into()), event: Some(event.into()), ..Default::default() };
+            f(&mut e);
+            e
+        };
+        o.apply(at(0, "UserPromptSubmit", &|_| {}));
+        o.apply(at(10, "PermissionRequest", &|_| {}));
+        o.apply(at(15, "PostToolUse", &|_| {}));
+        o.apply(at(20, "TaskCreated", &|e| { e.task_id = Some("t1".into()); e.detail = Some("Write tests".into()); e.teammate = Some("tester".into()); }));
+        o.apply(at(25, "TaskCompleted", &|e| { e.task_id = Some("t1".into()); }));
+        o.apply(at(30, "Stop", &|_| {}));
+        let p = &o.stats.projects["Synapse"];
+        assert_eq!((p.working, p.waiting, p.tasks), (25000, 5000, 1));
+        let t = &o.sessions["s1"].tasks["t1"];
+        assert!(t.done && t.owner.as_deref() == Some("tester") && t.subject == "Write tests");
     }
 }

@@ -55,7 +55,7 @@ function start({ port = Number(process.env.CLAUDE_OFFICE_PORT) || 7431, dir = of
     return true;
   };
 
-  const snapshot = () => JSON.stringify({ now: new Date().toISOString(), sessions: Object.values(prune(state).sessions) });
+  const snapshot = () => JSON.stringify({ now: new Date().toISOString(), sessions: Object.values(prune(state).sessions), stats: state.stats });
   const broadcast = () => { const data = `data: ${snapshot()}\n\n`; for (const res of clients) res.write(data); };
 
   readNew();

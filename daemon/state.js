@@ -9,7 +9,23 @@ const STALE_MS = 3 * 60 * 60 * 1000; // shortcut: sessions killed without Sessio
 
 /** Status of a session: idle (pause area), working (at desk), waiting (needs you), error, done (celebrates). */
 function createState() {
-  return { sessions: {} };
+  return { sessions: {}, stats: { day: null, projects: {} } };
+}
+
+// Today's stats per project: time spent working / waiting for you / blocked by the usage limit, tasks done, errors.
+const TIMED = ['working', 'waiting', 'limited'];
+const dayOf = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function statsFor(state, project, ts) {
+  const day = dayOf(ts);
+  if (state.stats.day !== day) state.stats = { day, projects: {} };
+  return (state.stats.projects[project] ||= { working: 0, waiting: 0, limited: 0, tasks: 0, errors: 0 });
+}
+function accrue(state, s, until) {
+  if (!TIMED.includes(s.status) || !s.since) return;
+  const midnight = new Date(until); midnight.setHours(0, 0, 0, 0);
+  const from = Math.max(Date.parse(s.since), midnight.getTime()); // only today's part counts
+  const ms = Date.parse(until) - from;
+  if (ms > 0) statsFor(state, s.project, until)[s.status] += ms;
 }
 
 function gitBranch(cwd) {
@@ -36,6 +52,7 @@ function apply(state, e, opts = {}) {
   const branchOf = opts.gitBranch || gitBranch;
   let s = state.sessions[e.session_id];
   if (e.event === 'SessionEnd') {
+    if (s) accrue(state, s, e.ts);
     delete state.sessions[e.session_id];
     return state;
   }
@@ -43,7 +60,7 @@ function apply(state, e, opts = {}) {
     s = state.sessions[e.session_id] = {
       id: e.session_id, cwd: e.cwd, project: e.cwd ? path.basename(e.cwd) : '?', branch: null,
       status: 'idle', since: e.ts, lastTs: e.ts, lastAction: '', taskStart: null, toolCount: 0, errors: 0,
-      agents: {}, logs: [],
+      agents: {}, logs: [], tasks: {},
     };
   }
   if (e.cwd && e.cwd !== s.cwd) { s.cwd = e.cwd; s.project = path.basename(e.cwd); }
@@ -54,11 +71,12 @@ function apply(state, e, opts = {}) {
 
   const action = [e.tool, e.detail].filter(Boolean).join(' · ');
   const agent = e.agent_id ? (s.agents[e.agent_id] ||= { id: e.agent_id, type: e.agent_type || 'agent', status: 'working', lastAction: '' }) : null;
-  const setStatus = (st) => { if (s.status !== st) { s.status = st; s.since = e.ts; } };
+  const setStatus = (st) => { if (s.status !== st) { accrue(state, s, e.ts); s.status = st; s.since = e.ts; } };
+  if (e.teammate && agent) agent.name = e.teammate;
   const startTask = () => { if (!s.taskStart || s.status === 'idle' || s.status === 'done') { s.taskStart = e.ts; s.toolCount = 0; s.errors = 0; } };
 
   switch (e.event) {
-    case 'SessionStart': setStatus('idle'); s.agents = {}; break;
+    case 'SessionStart': setStatus('idle'); s.agents = {}; s.tasks = {}; break;
     case 'UserPromptSubmit': startTask(); setStatus('working'); s.lastAction = 'Nouvelle tâche'; break;
     case 'PreToolUse':
       if (s.status !== 'working') { startTask(); setStatus('working'); }
@@ -75,12 +93,18 @@ function apply(state, e, opts = {}) {
       break;
     case 'SubagentStart': if (agent) agent.status = 'working'; break;
     case 'SubagentStop': if (e.agent_id) delete s.agents[e.agent_id]; break;
-    case 'Stop': setStatus('done'); s.agents = {}; s.lastAction = 'Tâche terminée'; break;
+    case 'Stop': setStatus('done'); s.agents = {}; s.lastAction = 'Tâche terminée'; statsFor(state, s.project, e.ts).tasks++; break;
+    // Agent teams: shared task list and idle teammates.
+    case 'TaskCreated': if (e.task_id) s.tasks[e.task_id] = { id: e.task_id, subject: e.detail || '', owner: e.teammate || null, done: false }; break;
+    case 'TaskCompleted':
+      if (e.task_id) s.tasks[e.task_id] = { ...(s.tasks[e.task_id] || { id: e.task_id, subject: e.detail || '' }), owner: e.teammate || s.tasks[e.task_id]?.owner || null, done: true };
+      break;
+    case 'TeammateIdle': if (agent) agent.status = 'idle'; break;
     case 'StopFailure':
       s.agents = {};
       // Usage limit reached: the mascot waits in the server room with a stopwatch.
       if (e.kind === 'rate_limit') { setStatus('limited'); s.lastAction = 'Limite Claude atteinte'; }
-      else { setStatus('error'); s.lastAction = `Erreur : ${e.detail || 'API'}`; }
+      else { setStatus('error'); s.lastAction = `Erreur : ${e.detail || 'API'}`; statsFor(state, s.project, e.ts).errors++; }
       break;
   }
   return state;

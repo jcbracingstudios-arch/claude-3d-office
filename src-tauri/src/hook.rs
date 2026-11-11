@@ -47,7 +47,7 @@ fn detail(e: &Value) -> String {
     let raw = ["command", "file_path", "notebook_path", "pattern", "url", "query", "description"]
         .iter()
         .find_map(|k| str_of(&input, k))
-        .or_else(|| ["message", "error", "reason", "source"].iter().find_map(|k| str_of(e, k)))
+        .or_else(|| ["task_subject", "message", "error", "reason", "source"].iter().find_map(|k| str_of(e, k)))
         .unwrap_or("");
     let one_line = raw.split_whitespace().collect::<Vec<_>>().join(" ");
     redact(&one_line).chars().take(160).collect()
@@ -59,7 +59,7 @@ pub fn to_line(e: &Value, ts: &str) -> String {
     m.insert("session_id".into(), e.get("session_id").cloned().unwrap_or(Value::Null));
     m.insert("cwd".into(), e.get("cwd").cloned().unwrap_or(Value::Null));
     m.insert("event".into(), e.get("hook_event_name").cloned().unwrap_or(Value::Null));
-    for (from, to) in [("tool_name", "tool"), ("agent_id", "agent_id"), ("agent_type", "agent_type"), ("notification_type", "kind")] {
+    for (from, to) in [("tool_name", "tool"), ("agent_id", "agent_id"), ("agent_type", "agent_type"), ("teammate_name", "teammate"), ("task_id", "task_id"), ("notification_type", "kind")] {
         if let Some(s) = str_of(e, from) {
             m.insert(to.into(), json!(s));
         }

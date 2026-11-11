@@ -8,6 +8,7 @@ const os = require('os');
 const EVENTS = [
   'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure',
   'PermissionRequest', 'Notification', 'Stop', 'StopFailure', 'SubagentStart', 'SubagentStop', 'SessionEnd',
+  'TaskCreated', 'TaskCompleted', 'TeammateIdle', // agent teams
 ];
 
 const officeDir = () => process.env.CLAUDE_OFFICE_DIR || path.join(os.homedir(), 'claude-office');

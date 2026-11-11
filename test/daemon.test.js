@@ -40,6 +40,21 @@ test('session lifecycle: idle -> working -> waiting -> done, employees come and 
   assert.strictEqual(st.sessions.s1, undefined);
 });
 
+test("today's stats and agent-team tasks", () => {
+  const st = createState();
+  const at = (sec, event, extra = {}) => ({ ts: new Date(Date.UTC(2026, 10, 11, 12, 0, sec)).toISOString(), session_id: 's1', cwd: 'C:\\code\\Synapse', event, ...extra });
+  apply(st, at(0, 'UserPromptSubmit'), opts);
+  apply(st, at(10, 'PermissionRequest'), opts); // 10 s working
+  apply(st, at(15, 'PostToolUse'), opts); // 5 s waiting
+  apply(st, at(20, 'TaskCreated', { task_id: 't1', detail: 'Write tests', teammate: 'tester' }), opts);
+  apply(st, at(21, 'PreToolUse', { tool: 'SendMessage', agent_id: 'm1', agent_type: 'tester', teammate: 'tester' }), opts);
+  apply(st, at(25, 'TaskCompleted', { task_id: 't1', teammate: 'tester' }), opts);
+  apply(st, at(30, 'Stop'), opts); // 15 s more working
+  const p = st.stats.projects.Synapse;
+  assert.deepStrictEqual([p.working, p.waiting, p.tasks], [25000, 5000, 1]);
+  assert.deepStrictEqual(st.sessions.s1.tasks.t1, { id: 't1', subject: 'Write tests', owner: 'tester', done: true });
+});
+
 test('server: loopback only, token required, streams state', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3o-d-'));
   fs.writeFileSync(path.join(dir, 'events.jsonl'), JSON.stringify(ev('UserPromptSubmit')) + '\n');
